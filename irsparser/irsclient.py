@@ -1,0 +1,217 @@
+import urllib.request
+import requests
+import datetime
+from os.path import join
+import pandas as pd
+import os
+import json
+from .irs_helpers import xml_parser3
+from .irs_helpers import commonNTEEparser, deductibilityParser
+from .irs_helpers import descNTEEparser, organizationParser
+
+
+class Client():
+    """Initialize a client that will hold the data necessary to parse IRS data.
+    We will need to initalize the following:
+
+    1. A list of EINs that will be used to subset the indices
+    2. A list of indices that we will use to find XML files
+    3. The location of the XML files from index or local file"""
+
+    def __init__(
+        self, local_data_dir=None, ein_filename=None,
+        index_years=[2016, 2017, 2018], index_download=False,
+        save_xml=False
+    ):
+
+        self.local_data_dir = local_data_dir
+        self.save_xml = save_xml
+
+        eins = self.get_eins(ein_filename)
+        indices_all = self.get_index(
+            index_years, index_download)
+
+        self.jewish_orgs_all = [
+            org for org in indices_all if org["EIN"] in eins]
+        print((
+            "Number of Jewish Orgs in Indices: " +
+            str(len(self.jewish_orgs_all))))
+
+        jewish_orgs_all_df = pd.DataFrame(self.jewish_orgs_all)
+
+        self.most_recent_filings = jewish_orgs_all_df.loc[
+            jewish_orgs_all_df["FormType"] == "990", :]\
+            .sort_values(["EIN", "TaxPeriod", "LastUpdated"])\
+            .groupby(["EIN", "TaxPeriod"], as_index=False).last()
+
+        self.obj_ids = self.most_recent_filings["ObjectId"].values
+        self.eins = eins
+
+    def parse_xmls(self, add_organization_info=True):
+        success_file, error_file = self.irs_parse(
+            self.obj_ids,
+            save_xml=self.save_xml)
+
+        # Match EIN types for merge
+        self.most_recent_filings["EIN"] = (
+            self.most_recent_filings["EIN"].astype(str))
+        success_file["EIN"] = success_file["EIN"].astype(str)
+
+        self.df = pd.merge(
+            self.most_recent_filings, success_file,
+            how="right",
+            on=["EIN", "ObjectId", "URL"])
+
+        if add_organization_info:
+            df_org = self.getOrgProfiles()
+            self.df = pd.merge(self.df, df_org, on="EIN", how="left")
+        self.error_file = error_file
+
+    def get_eins(self, filename):
+
+        # Get the list of EINS
+        eins = []
+        filename = join(self.local_data_dir, filename)
+        with open(filename, 'r') as f:
+            for line in f:
+                eins.append(line.replace('-', '').strip('\n'))
+        print(f"Number of EINS: {len(eins)}")
+        return eins
+
+    def get_index(self, years, download=False):
+        indices_all = []
+
+        for year in years:
+            idx_name = "index_" + str(year) + ".json"
+            filename = join(self.local_data_dir, idx_name)
+
+            if not os.path.exists(filename):
+                url = "https://s3.amazonaws.com/irs-form-990/" + idx_name
+                urllib.request.urlretrieve(url, filename)
+
+            with open(filename, 'r') as f:
+                filing_name = "Filings" + str(year)
+                d = json.load(f)
+                res = d[filing_name]
+
+            print(f"Gathered for {filing_name}")
+            indices_all = indices_all + res
+        return indices_all
+
+    def irs_parse(self, obj_ids, save_xml=False):
+        success = []
+        error_file = []
+        t0 = datetime.datetime.now()
+
+        for i, oid in enumerate(obj_ids):
+
+            new_url = (
+                "https://s3.amazonaws.com/irs-form-990/" + oid + "_public.xml")
+            fname = os.path.join(
+                self.local_data_dir, "xml_files", oid + ".xml")
+
+            if os.path.exists(fname):
+                try:
+                    with open(fname, "rb") as f:
+                        txt = f.read()
+                    tmp = xml_parser3(txt)
+                    tmp["ObjectId"] = oid
+                    tmp["URL"] = new_url
+                    success.append(tmp)
+                except Exception as e:
+                    error_file.append({"url": new_url, "error": e})
+
+            else:
+                try:
+                    txt = requests.get(new_url)
+                    if save_xml:
+                        with open(fname, "wb") as f:
+                            f.write(txt.content)
+                    tmp = xml_parser3(txt.content)
+                    tmp["ObjectId"] = oid
+                    tmp["URL"] = new_url
+
+                    success.append(tmp)
+                except Exception as e:
+                    error_file.append({"url": new_url, "error": e})
+
+            if (i % 1000 == 0) & (i > 0):
+                t1 = datetime.datetime.now()
+                print(str(i) + " records processed")
+                print((
+                    "Total Runtime " +
+                    str((t1 - t0).total_seconds()) + " seconds"))
+        return pd.DataFrame(success), pd.DataFrame(error_file)
+
+    def getOrgProfiles(self):
+
+        # NTEE Values
+        df = pd.DataFrame()
+        for eo in ["eo1.csv", "eo2.csv", "eo3.csv", "eo4.csv"]:
+            filename = join(self.local_data_dir, eo)
+            tmp = pd.read_csv(
+                filename,
+                usecols=[
+                    "EIN", "NTEE_CD", "DEDUCTIBILITY",
+                    "FOUNDATION", "ORGANIZATION"],
+                dtype={"EIN": str})
+            tmp["EIN"] = tmp["EIN"].astype(str)
+            tmp.index = tmp.index.astype(str)
+            tmp_sub = tmp.loc[tmp["EIN"].isin(self.eins), :].copy()
+            df = df.append(tmp_sub)
+
+        # NTEE Common Codes
+        filename = join(self.local_data_dir, 'ntee_common_codes.csv')
+        tmp = pd.read_csv(filename, index_col="Code")
+        ntee_common_codes = tmp.to_dict().get("Description")
+        df["NTEE_COMMON"] = (
+            df["NTEE_CD"]
+            .apply(lambda x: commonNTEEparser(str(x)[0:3], ntee_common_codes)))
+
+        # NTEE Descriptions
+        filename = join(self.local_data_dir, "ntee_codes_descr.csv")
+        tmp = pd.read_csv(filename, index_col="Code")
+        ntee_names = tmp.to_dict().get("Description")
+        df["NTEE_DESCR"] = (
+            df["NTEE_CD"]
+            .apply(lambda x: descNTEEparser(str(x)[0:3], ntee_names)))
+
+        # Deductibility
+        df["DEDUCTIBILITY"] = df["DEDUCTIBILITY"].apply(deductibilityParser)
+
+        # Foundation
+        filename = join(self.local_data_dir, 'foundation_codes.csv')
+        tmp = pd.read_csv(filename, index_col="Code")
+        foundation_codes = tmp.to_dict().get("Description")
+        df["FOUNDATION"] = df["FOUNDATION"].map(foundation_codes)
+
+        # Organization
+        df["ORGANIZATION"] = df["ORGANIZATION"].apply(organizationParser)
+
+        df.rename(
+            columns={
+                "DEDUCTIBILITY": "Deductibility",
+                "ORGANIZATION": "Organization",
+                "FOUNDATION": "Foundation", "NTEE_COMMON": "NTEECommonCode",
+                "NTEE_CD": "NTEECode", "NTEE_DESCR": "NTEECodeDescription"},
+            inplace=True)
+        return df
+
+    def getFinalDF(self):
+        return self.df
+
+    def getErrorDF(self):
+        return self.error_file
+
+
+if __name__ == "__main__":
+    # Runtime
+    client = Client(
+        ein_filename="../data/eins", index_years=[2016, 2017, 2018],
+        index_local_dir='../data', index_download=False,
+        index_local_files=True, index_data_source="../xml_files",
+        save_xml=False)
+    client.parse_xmls(add_organization_info=True)
+    df = client.getFinalDF()
+    print(df.columns)
+    print(df.head())
