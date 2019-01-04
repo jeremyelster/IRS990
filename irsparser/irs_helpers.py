@@ -3,12 +3,16 @@ import pandas as pd
 import xmltodict
 
 
-def xml_parser3(content):
+def xml_parser3(content, parser="base"):
     xml_attribs = True
     d = xmltodict.parse(content, xml_attribs=xml_attribs)
     version = d["Return"]["@returnVersion"]
 
-    important_things = version_parser(d, version)
+    if parser == "propublica":
+        important_things = propublicaParser(d)
+    else:
+        important_things = base_parser(d, version)
+
     important_things.update(get_header(d))
 
     return important_things
@@ -18,10 +22,26 @@ def get_header(d):
 
     header = d.get('Return').get("ReturnHeader")
     if header.get("Filer").get("USAddress", False):
+        address = (
+            header.get("Filer").get("USAddress").get("AddressLine1Txt", False))
+        if not address:
+            address = (
+                header.get("Filer").get("USAddress").get("AddressLine1", None))
+        city_abbr = (
+            header.get("Filer").get("USAddress").get("CityNm", False))
+        if not city_abbr:
+            city_abbr = (
+                header.get("Filer").get("USAddress").get("City", False))
         state_abbr = (
-            header.get("Filer").get("USAddress").get("StateAbbreviationCd"))
+            header.get("Filer").get("USAddress").get("StateAbbreviationCd", False))
+        if not state_abbr:
+            state_abbr = (
+                header.get("Filer").get("USAddress").get("State", None))
+
         country_abbr = "US"
     elif header.get("Filer").get("ForeignAddress", False):
+        address = None
+        city_abbr = header.get("Filer").get("ForeignAddress").get("CityNm")
         state_abbr = header.get("Filer").get("ForeignAddress").get("CityNm")
         country_abbr = (
             header.get("Filer").get("ForeignAddress").get("CountryCd"))
@@ -39,6 +59,8 @@ def get_header(d):
         "ReturnTypeCd": header.get("ReturnTypeCd"),
         "TaxPeriodBeginDt": header.get("TaxPeriodBeginDt"),
         "EIN": header.get("Filer").get("EIN"),
+        "Address": address,
+        "City": city_abbr,
         "StateAbbr": state_abbr,
         "CountryAbbr": country_abbr,
 
@@ -57,7 +79,7 @@ def get_header(d):
     }
 
 
-def version_parser(d, version):
+def base_parser(d, version):
 
     if version != "206v3.0":
 
@@ -200,57 +222,66 @@ def version_parser(d, version):
     return important_things
 
 
-def getOrgProfiles(eins, local_dir=None):
+def propublicaParser(d):
+    irs990 = d.get("Return").get("ReturnData").get("IRS990")
 
-    # NTEE Values
-    df = pd.DataFrame()
-    for eo in ["eo1.csv", "eo2.csv", "eo3.csv", "eo4.csv"]:
-        filename = join(local_dir, eo)
-        tmp = pd.read_csv(
-            filename,
-            usecols=[
-                "EIN", "NTEE_CD", "DEDUCTIBILITY",
-                "FOUNDATION", "ORGANIZATION"],
-            dtype={"EIN": str})
-        tmp["EIN"] = tmp["EIN"].astype(str)
-        tmp.index = tmp.index.astype(str)
-        tmp_sub = tmp.loc[tmp["EIN"].isin(eins), :].copy()
-        df = df.append(tmp_sub)
+    # Revenue
+    cy_total_rev = float(irs990.get("CYTotalRevenueAmt", 0))
+    cy_total_exp = float(irs990.get("CYTotalExpensesAmt", 0))
+    cy_rev_less_exp = float(irs990.get("CYRevenuesLessExpensesAmt", 0))
+    total_assets_eoy = float(irs990.get("TotalAssetsEOYAmt", 0))
+    total_liabilities_eoy = float(irs990.get("TotalLiabilitiesEOYAmt", 0))
 
-    # NTEE Common Codes
-    filename = join(local_dir, 'ntee_common_codes.csv')
-    tmp = pd.read_csv(filename, index_col="Code")
-    ntee_common_codes = tmp.to_dict().get("Description")
-    df["NTEE_COMMON"] = (
-        df["NTEE_CD"]
-        .apply(lambda x: commonNTEEparser(str(x)[0:3], ntee_common_codes)))
+    # Propublica Revenue Sources
+    cy_contributions = float(irs990.get("CYContributionsGrantsAmt", 0))
+    cy_program_rev = float(irs990.get("CYProgramServiceRevenueAmt", 0))
+    cy_investment = float(irs990.get("InvestmentIncomeGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_bond = float(irs990.get("IncmFromInvestBondProceedsGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_royalties = float(irs990.get("RoyaltiesRevenueGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_rental_property = float(irs990.get("NetRentalIncomeOrLossGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_fundraising_rev = float(irs990.get("NetIncmFromFundraisingEvtGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_sale_assets = float(irs990.get("CYInvestmentIncomeAmt", 0))
+    cy_net_inventory = float(irs990.get("IncmFromInvestBondProceedsGrp", {}).get("TotalRevenueColumnAmt", 0))
+    cy_other_rev = float(irs990.get("OtherRevenueTotalAmt", 0))
 
-    # NTEE Descriptions
-    filename = join(local_dir, "ntee_codes_descr.csv")
-    tmp = pd.read_csv(filename, index_col="Code")
-    ntee_names = tmp.to_dict().get("Description")
-    df["NTEE_DESCR"] = (
-        df["NTEE_CD"].apply(lambda x: descNTEEparser(str(x)[0:3], ntee_names)))
+    # Propublica Expenses Sources
+    cy_executive_comp = float(irs990.get("CompCurrentOfcrDirectorsGrp", {}).get("TotalAmt", 0))
+    fundraise = irs990.get("FeesForServicesProfFundraising", None)
+    if fundraise is not None:
+        cy_fundraising_exp = float(fundraise.get("TotalAmt", 0))
+    else:
+        cy_fundraising_exp = 0
+    cy_other_salary = float(irs990.get("OtherSalariesAndWagesGrp", {}).get("TotalAmt", 0))
+    cy_program_exp = float(irs990.get("TotalProgramServiceExpensesAmt", 0))
 
-    # Deductibility
-    df["DEDUCTIBILITY"] = df["DEDUCTIBILITY"].apply(deductibilityParser)
+    val_dict = {
+        "TotalRevenue": cy_total_rev,
+        "TotalExpenses": cy_total_exp,
+        "RevenueLessExpenses": cy_rev_less_exp,
+        "TotalAssets": total_assets_eoy,
+        "TotalLiabilities": total_liabilities_eoy,
+        "NetAssets": total_assets_eoy - total_liabilities_eoy,
 
-    # Foundation
-    filename = join(local_dir, 'foundation_codes.csv')
-    tmp = pd.read_csv(filename, index_col="Code")
-    foundation_codes = tmp.to_dict().get("Description")
-    df["FOUNDATION"] = df["FOUNDATION"].map(foundation_codes)
+        # Propublica Revenue Sources
+        "Contributions": cy_contributions,
+        "ProgramServices": cy_program_rev,
+        "InvestmentIncome": cy_investment,
+        "BondProceeds": cy_bond,
+        "Royalties": cy_royalties,
+        "RentalPropertyIncome": cy_rental_property,
+        "NetFundraising": cy_fundraising_rev,
+        "SalesOfAssets": cy_sale_assets,
+        "NetInventorySales": cy_net_inventory,
+        "OtherRevenue": cy_other_rev,
 
-    # Organization
-    df["ORGANIZATION"] = df["ORGANIZATION"].apply(organizationParser)
+        # Propublica Expenses Sources
+        "ExecutiveCompensation": cy_executive_comp,
+        "ProfessionalFundraisingFees": cy_fundraising_exp,
+        "OtherSalaryWages": cy_other_salary,
+        "ProgramExpenses": cy_program_exp,
+    }
 
-    df.rename(
-        columns={
-            "DEDUCTIBILITY": "Deductibility", "ORGANIZATION": "Organization",
-            "FOUNDATION": "Foundation", "NTEE_COMMON": "NTEECommonCode",
-            "NTEE_CD": "NTEECode", "NTEE_DESCR": "NTEECodeDescription"},
-        inplace=True)
-    return df
+    return val_dict
 
 
 def descNTEEparser(code, d):

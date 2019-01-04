@@ -5,6 +5,8 @@ from os.path import join
 import pandas as pd
 import os
 import json
+import re
+import flatten_json
 from .irs_helpers import xml_parser3
 from .irs_helpers import commonNTEEparser, deductibilityParser
 from .irs_helpers import descNTEEparser, organizationParser
@@ -16,20 +18,22 @@ class Client():
 
     1. A list of EINs that will be used to subset the indices
     2. A list of indices that we will use to find XML files
-    3. The location of the XML files from index or local file"""
+    3. The location of the data folder to put/retrieve data
+    """
 
     def __init__(
         self, local_data_dir=None, ein_filename=None,
-        index_years=[2016, 2017, 2018], index_download=False,
-        save_xml=False
+        index_years=[2016, 2017, 2018], save_xml=False,
+        parser="base"
     ):
 
         self.local_data_dir = local_data_dir
         self.save_xml = save_xml
+        self.parser = parser
 
         eins = self.get_eins(ein_filename)
         indices_all = self.get_index(
-            index_years, index_download)
+            index_years)
 
         self.jewish_orgs_all = [
             org for org in indices_all if org["EIN"] in eins]
@@ -46,6 +50,46 @@ class Client():
 
         self.obj_ids = self.most_recent_filings["ObjectId"].values
         self.eins = eins
+
+    def get_eins(self, filename):
+        """Provide a list of EINS in a text file with each EIN on a newline.
+        """
+
+        # Get the list of EINS
+        eins = []
+        filename = join(self.local_data_dir, filename)
+        with open(filename, 'r') as f:
+            for line in f:
+                eins.append(line.replace('-', '').strip('\n'))
+        print(f"Number of EINS: {len(eins)}")
+        return eins
+
+    def get_index(self, years):
+        """Provide a list of years. This function will check to see if the
+        index exists in your data folder, otherwise it will download the file
+        from AWS.
+
+        Sample Input:
+        years = [2016, 2017, 2018]
+        """
+        indices_all = []
+
+        for year in years:
+            idx_name = "index_" + str(year) + ".json"
+            filename = join(self.local_data_dir, idx_name)
+
+            if not os.path.exists(filename):
+                url = "https://s3.amazonaws.com/irs-form-990/" + idx_name
+                urllib.request.urlretrieve(url, filename)
+
+            with open(filename, 'r') as f:
+                filing_name = "Filings" + str(year)
+                d = json.load(f)
+                res = d[filing_name]
+
+            print(f"Gathered for {filing_name}")
+            indices_all = indices_all + res
+        return indices_all
 
     def parse_xmls(self, add_organization_info=True):
         success_file, error_file = self.irs_parse(
@@ -67,37 +111,6 @@ class Client():
             self.df = pd.merge(self.df, df_org, on="EIN", how="left")
         self.error_file = error_file
 
-    def get_eins(self, filename):
-
-        # Get the list of EINS
-        eins = []
-        filename = join(self.local_data_dir, filename)
-        with open(filename, 'r') as f:
-            for line in f:
-                eins.append(line.replace('-', '').strip('\n'))
-        print(f"Number of EINS: {len(eins)}")
-        return eins
-
-    def get_index(self, years, download=False):
-        indices_all = []
-
-        for year in years:
-            idx_name = "index_" + str(year) + ".json"
-            filename = join(self.local_data_dir, idx_name)
-
-            if not os.path.exists(filename):
-                url = "https://s3.amazonaws.com/irs-form-990/" + idx_name
-                urllib.request.urlretrieve(url, filename)
-
-            with open(filename, 'r') as f:
-                filing_name = "Filings" + str(year)
-                d = json.load(f)
-                res = d[filing_name]
-
-            print(f"Gathered for {filing_name}")
-            indices_all = indices_all + res
-        return indices_all
-
     def irs_parse(self, obj_ids, save_xml=False):
         success = []
         error_file = []
@@ -114,12 +127,17 @@ class Client():
                 try:
                     with open(fname, "rb") as f:
                         txt = f.read()
-                    tmp = xml_parser3(txt)
+                    tmp = xml_parser3(txt, self.parser)
                     tmp["ObjectId"] = oid
                     tmp["URL"] = new_url
                     success.append(tmp)
                 except Exception as e:
-                    error_file.append({"url": new_url, "error": e})
+                    with open(fname, "rb") as f:
+                        txt = f.read()
+                    p = re.compile('returnVersion="(\d+v\d.\d)"')
+                    version = str(p.findall(str(txt))[0])
+                    error_file.append(
+                        {"url": new_url, "error": e, "version": version})
 
             else:
                 try:
@@ -127,7 +145,7 @@ class Client():
                     if save_xml:
                         with open(fname, "wb") as f:
                             f.write(txt.content)
-                    tmp = xml_parser3(txt.content)
+                    tmp = xml_parser3(txt.content, self.parser)
                     tmp["ObjectId"] = oid
                     tmp["URL"] = new_url
 
@@ -202,6 +220,54 @@ class Client():
 
     def getErrorDF(self):
         return self.error_file
+
+    def getGrantDF(self):
+        df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()
+        grants = []
+        errors = 0
+        df_tmp = df_dash[[
+            "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
+            "City", "StateAbbr", "ScheduleI"]].copy()
+        for row in df_tmp.itertuples():
+
+            if row[8] is not None:
+                tmp = {}
+                tmp["EIN"] = row[1]
+                tmp["ObjectId"] = row[2]
+                tmp["OrganizationName"] = row[3]
+                tmp["TaxYr"] = row[4]
+                tmp["Address"] = row[5]
+                tmp["City"] = row[6]
+                tmp["StateAbbr"] = row[7]
+
+                d = row[8]
+                tbl = d.get("RecipientTable", False)
+                if tbl:
+                    if isinstance(tbl, dict):
+                        # If its the only element in table,
+                        # put it in a list to iterate over
+                        tmp2 = []
+                        tmp2.append(tbl)
+                        tbl = tmp2
+                        errors += 1
+                    for grant in tbl:
+                        tmp_grant = flatten_json.flatten(grant)
+
+                        tmp_grant.update(tmp)
+                        grants.append(tmp_grant)
+
+        df_grants = pd.DataFrame(grants)
+        grant_cols = [
+            "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
+            "City", "StateAbbr",
+            "RecipientEIN", "RecipientBusinessName_BusinessNameLine1Txt",
+            "PurposeOfGrantTxt", "CashGrantAmt", 'NonCashAssistanceAmt',
+            'NonCashAssistanceDesc', "IRCSectionDesc", "USAddress_CityNm",
+            "USAddress_StateAbbreviationCd", "ForeignAddress_AddressLine1Txt",
+            "ForeignAddress_CountryCd"
+        ]
+        self.df_grants = df_grants[grant_cols].copy()
+        return df_grants
 
 
 if __name__ == "__main__":
