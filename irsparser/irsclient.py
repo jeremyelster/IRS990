@@ -107,7 +107,7 @@ class Client():
             on=["EIN", "ObjectId", "URL"])
 
         if add_organization_info:
-            df_org = self.getOrgProfiles()
+            df_org = self.getOrgProfiles
             self.df = pd.merge(self.df, df_org, on="EIN", how="left")
         self.error_file = error_file
 
@@ -161,10 +161,21 @@ class Client():
                     str((t1 - t0).total_seconds()) + " seconds"))
         return pd.DataFrame(success), pd.DataFrame(error_file)
 
+    @property
     def getOrgProfiles(self):
 
         # NTEE Values
         df = pd.DataFrame()
+        filename = join(self.local_data_dir, "eo1.csv")
+
+        if not os.path.exists(filename):
+            for i in range(1, 5):
+                eo = requests.get(f"https://www.irs.gov/pub/irs-soi/eo{str(i)}.csv")
+                filename = join(self.local_data_dir, f"eo{str(i)}.csv")
+                with open(filename, 'wb') as f:
+                    for chunk in eo:
+                        f.write(chunk)
+
         for eo in ["eo1.csv", "eo2.csv", "eo3.csv", "eo4.csv"]:
             filename = join(self.local_data_dir, eo)
             tmp = pd.read_csv(
@@ -269,15 +280,3 @@ class Client():
         self.df_grants = df_grants[grant_cols].copy()
         return df_grants
 
-
-if __name__ == "__main__":
-    # Runtime
-    client = Client(
-        ein_filename="../data/eins", index_years=[2016, 2017, 2018],
-        index_local_dir='../data', index_download=False,
-        index_local_files=True, index_data_source="../xml_files",
-        save_xml=False)
-    client.parse_xmls(add_organization_info=True)
-    df = client.getFinalDF()
-    print(df.columns)
-    print(df.head())
