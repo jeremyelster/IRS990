@@ -76,7 +76,7 @@ def parse_officer_list(df):
     officer_list["PersonNm"] = officer_list["PersonNm"].apply(lambda x: x.upper())
 
     # Deal with Titles
-    officer_list["TitleTxt"] = officer_list["TitleTxt"].apply(lambda x: x.upper())
+    officer_list["TitleTxt"] = officer_list["TitleTxt"].apply(lambda x: str(x).upper())
 
     df_officer = officer_list[column_order].copy()
     df_officer["TotalCompFromOrgAmt"] = df_officer["ReportableCompFromOrgAmt"] + df_officer["OtherCompensationAmt"]
