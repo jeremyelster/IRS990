@@ -232,6 +232,34 @@ class Client():
     def getErrorDF(self):
         return self.error_file
 
+    def getDashboardDF(self):
+        dash_cols = [
+            # Org Info
+            'EIN', 'URL', 'LastUpdated', 'OrganizationName', 'TaxPeriod', 'TaxPeriodBeginDt',
+            'TaxPeriodEndDt', 'TaxYr', 'StateAbbr', 'Mission', 'TotalEmployee', "ObjectId",
+            'NTEECommonCode', 'Foundation',
+
+            # People
+            "OfficerName", "OfficerTitle", 'OfficerCompensationPart9', "ScheduleJ",
+
+            # Grants and Programs
+            "GrantDesc", "GrantMoneyTotal", "ProgramExpenses",
+
+            # Money
+            "PYTotalRevenue", "CYTotalRevenue",
+            "PYRevenuesLessExpenses", "CYRevenuesLessExpenses",
+            'TotalAssetsBOY', 'TotalAssetsEOY',
+            'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
+            'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',
+
+            # Metrics
+            "WorkingCapital", "LiabilitiesToAsset", "SurplusMargin", "ProgramExp",
+
+            # Additional
+            "ScheduleI", 'ScheduleO', "ScheduleA"]
+        df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
+        return df_dash
+
     def getGrantDF(self):
         df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()
         grants = []
