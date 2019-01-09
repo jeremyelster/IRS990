@@ -2,9 +2,6 @@ import pandas as pd
 import numpy as np
 from pandas.io.json import json_normalize
 import flatten_json
-import sys
-import irsparser as irs
-sys.path.append("../../")
 
 
 def parse_officer_list(df):
@@ -12,6 +9,22 @@ def parse_officer_list(df):
 
     Takes the OfficerList column returned from IRS990 and builds it into a data frame
     with each officer getting their own row"""
+
+    # First Grab the Principal Officer listed on the first page of the IRS Form
+    officers = df[[
+        "EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "Mission",
+        "OfficerName", "OfficerTitle", "OfficerCompensationPart9",
+        "CYTotalExpenses"]].copy()
+
+    # Caps Names
+    officers["OfficerName"] = officers["OfficerName"].apply(lambda x: x.upper())
+    # Deal with Titles
+    officers["OfficerTitle"] = officers["OfficerTitle"].apply(lambda x: str(x).upper())
+    # Add Officer Compensation Percentage of Total Expenses
+    tmp_val = officers["OfficerCompensationPart9"] / officers["CYTotalExpenses"]
+    officers.loc[:, "OfficerCompensationPct"] = tmp_val.copy()
+
+    # Form990PartVIISectionAGrp
     officers_cols = ["EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "OfficerList"]
     df_tmp = df[officers_cols].copy()
     officer_list = pd.DataFrame()
@@ -82,7 +95,7 @@ def parse_officer_list(df):
     df_officer["TotalCompFromOrgAmt"] = df_officer["ReportableCompFromOrgAmt"] + df_officer["OtherCompensationAmt"]
     df_officer.reset_index(inplace=True, drop=True)
 
-    return df_officer
+    return officers, df_officer
 
 def get_bool(x):
 
@@ -190,21 +203,8 @@ if __name__ == "__main__":
     client.parse_xmls(add_organization_info=True)
     df = client.getFinalDF()
 
-    officers = df[[
-        "EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "Mission",
-        "OfficerName", "OfficerTitle", "OfficerCompensationPart9",
-        "CYTotalExpenses"]].copy()
-
-    # Caps Names
-    officers["OfficerName"] = officers["OfficerName"].apply(lambda x: x.upper())
-    # Deal with Titles
-    officers["OfficerTitle"] = officers["OfficerTitle"].apply(lambda x: str(x).upper())
-    # Add Officer Compensation Percentage of Total Expenses
-    tmp_val = officers["OfficerCompensationPart9"] / officers["CYTotalExpenses"]
-    officers.loc[:, "OfficerCompensationPct"] = tmp_val.copy()
-
     # Parse Officer List Form990PartVIISectionAGrp
-    df_officers = parse_officer_list(officers)
+    officers, df_officers = parse_officer_list(df)
 
     # Parse Schedule J
     df_schedulej = parse_schedule_j(df)

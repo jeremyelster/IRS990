@@ -10,6 +10,8 @@ import flatten_json
 from .irs_helpers import xml_parser3
 from .irs_helpers import commonNTEEparser, deductibilityParser
 from .irs_helpers import descNTEEparser, organizationParser
+from .irs_db_utils import db_connect, initialize_db
+from .irs_officer_helpers import parse_officer_list, parse_schedule_j
 
 
 class Client():
@@ -50,6 +52,13 @@ class Client():
 
         self.obj_ids = self.most_recent_filings["ObjectId"].values
         self.eins = eins
+        self.parse_xmls(add_organization_info=True)
+
+        # Parse Officer List Form990PartVIISectionAGrp
+        self.officers, self.df_officers = parse_officer_list(self.df)
+        # Parse Schedule J
+        self.df_schedulej = parse_schedule_j(self.df)
+
 
     def get_eins(self, filename):
         """Provide a list of EINS in a text file with each EIN on a newline.
