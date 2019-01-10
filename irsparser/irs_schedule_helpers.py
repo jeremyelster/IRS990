@@ -264,7 +264,6 @@ def get_irs_base_dashboard(df):
     df_dash["ScheduleJ"] = df_dash["ScheduleJ"].apply(schedule_j_parser)
     df_dash["ScheduleO"] = df_dash["ScheduleO"].apply(schedule_o_parser)
     df_dash["ScheduleI"] = df_dash["ScheduleI"].apply(schedule_i_parser)
-
     return df_dash
 
 
@@ -278,6 +277,8 @@ def schedule_a_parser(x):
 
 # Replace ScheduleI (Grants)
 def schedule_i_parser(x):
+    if x is None:
+        return False
     try:
         if x.get("RecipientTable", False):
             return True
@@ -285,14 +286,13 @@ def schedule_i_parser(x):
             return False
     except Exception as e:
         print(f"Schedule I Parser: {x} - {e}")
-        if x is None:
-            return False
-        else:
-            return False
+        return False
 
 
 # Remove ScheduleJ
 def schedule_j_parser(x):
+    if x is None:
+        return False
     try:
         if x.get("RltdOrgOfficerTrstKeyEmplGrp", False):
             return True
@@ -300,10 +300,7 @@ def schedule_j_parser(x):
             return False
     except Exception as e:
         print(f"Schedule J Parser: {x} - {e}")
-        if x is None:
-            return False
-        else:
-            return False
+        return False
 
 # Flatten Schedule O
 def schedule_o_parser(x):
