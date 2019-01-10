@@ -70,7 +70,7 @@ class Client():
             table_insert = "replace"
         else:
             table_insert = "append"
-        db_conn.saveDF(self.df, table="irs_base", insert=table_insert)
+        # db_conn.saveDF(self.df, table="irs_base", insert=table_insert)
         db_conn.saveDF(self.df_officers, table="officer_payment", insert=table_insert)
         db_conn.saveDF(self.df_schedulej, table="schedule_j", insert=table_insert)
         db_conn.saveDF(self.df_grants, table="grants", insert=table_insert)
