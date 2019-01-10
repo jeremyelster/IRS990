@@ -229,7 +229,7 @@ def parse_grant_table(df):
     return df_grants
 
 
-def get_irs_base_dashboard(self):
+def get_irs_base_dashboard(df):
     dash_cols = [
         # Org Info
         'EIN', 'URL', 'LastUpdated', 'OrganizationName', 'TaxPeriod', 'TaxPeriodBeginDt',
@@ -254,7 +254,7 @@ def get_irs_base_dashboard(self):
 
         # Additional
         "ScheduleJ", "ScheduleI", 'ScheduleO', "ScheduleA"]
-    df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
+    df_dash = df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
 
     # Clean Up Schedule J, Schedule I, Schedule O, Schedule A
     # Set Schedule A to TrueFalse to indicate if it exists
