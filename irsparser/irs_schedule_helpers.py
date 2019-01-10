@@ -83,6 +83,7 @@ def parse_officer_list(df):
 
     return df_officer
 
+
 def get_bool(x):
 
     if (x == "true") | (x == "1"):
@@ -92,6 +93,7 @@ def get_bool(x):
     else:
         print(f"Error: {x}")
         return x
+
 
 def parse_schedule_j(df):
     officers = []
@@ -253,21 +255,21 @@ def get_irs_base_dashboard(df):
         "WorkingCapital", "LiabilitiesToAsset", "SurplusMargin", "ProgramExp",
 
         # Additional
-        "ScheduleJ", "ScheduleI", 'ScheduleO', "ScheduleA"]
+        "ScheduleA", "ScheduleJ", "ScheduleI", 'ScheduleO']
     df_dash = df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
 
     # Clean Up Schedule J, Schedule I, Schedule O, Schedule A
     # Set Schedule A to TrueFalse to indicate if it exists
-    df_dash["ScheduleA"] = df_dash["ScheduleA"].apply(scheduleAparser)
-    df_dash["ScheduleJ"] = df_dash["ScheduleJ"].apply(scheduleJparser)
-    df_dash["ScheduleO"] = df_dash["ScheduleO"].apply(scheduleOparser)
-    df_dash["ScheduleI"] = df_dash["ScheduleI"].apply(scheduleIparser)
+    df_dash["ScheduleA"] = df_dash["ScheduleA"].apply(schedule_a_parser)
+    df_dash["ScheduleJ"] = df_dash["ScheduleJ"].apply(schedule_j_parser)
+    df_dash["ScheduleO"] = df_dash["ScheduleO"].apply(schedule_o_parser)
+    df_dash["ScheduleI"] = df_dash["ScheduleI"].apply(schedule_i_parser)
 
     return df_dash
 
 
 # Replace scheduleA with bool
-def scheduleAparser(x):
+def schedule_a_parser(x):
     if x is None:
         return False
     else:
@@ -275,7 +277,7 @@ def scheduleAparser(x):
 
 
 # Replace ScheduleI (Grants)
-def scheduleIparser(x):
+def schedule_i_parser(x):
     try:
         if x.get("RecipientTable", False):
             return True
@@ -290,7 +292,7 @@ def scheduleIparser(x):
 
 
 # Remove ScheduleJ
-def scheduleJparser(x):
+def schedule_j_parser(x):
     try:
         if x.get("RltdOrgOfficerTrstKeyEmplGrp", False):
             return True
@@ -304,7 +306,7 @@ def scheduleJparser(x):
             return False
 
 # Flatten Schedule O
-def scheduleOparser(x):
+def schedule_o_parser(x):
     res_str = ""
     supplInfoDetail = x.get("SupplementalInformationDetail", {})
     if isinstance(supplInfoDetail, dict):

@@ -65,10 +65,10 @@ CREATE TABLE irs_dashboard (
     LiabilitiesToAsset float,
     SurplusMargin float,
     ProgramExp float,
+    ScheduleA bool,
     ScheduleJ bool,
     ScheduleI bool,
-    ScheduleO bool,
-    ScheduleA bool)"""
+    ScheduleO text)"""
 
 officer_payment_sql = """
 CREATE TABLE officer_payment (
