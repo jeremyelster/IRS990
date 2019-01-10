@@ -1,7 +1,5 @@
-import os
 import sqlite3
-
-DEFAULT_PATH = '../data/database.sqlite3'
+import pandas as pd
 
 
 class DBConnect:
@@ -150,11 +148,3 @@ CREATE TABLE grants (
     USAddress_StateAbbreviationCd text,
     ForeignAddress_AddressLine1Txt text,
     ForeignAddress_CountryCd text)"""
-
-if __name__ == "__main__":
-    # create a default path to connect to and create (if necessary) a database
-    # called 'database.sqlite3' in the same directory as this script
-    DEFAULT_PATH = '../data/database.sqlite3'
-
-    con = db_connect()
-    initialize_db(con)
