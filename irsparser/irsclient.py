@@ -10,8 +10,8 @@ import flatten_json
 from .irs_helpers import xml_parser3
 from .irs_helpers import commonNTEEparser, deductibilityParser
 from .irs_helpers import descNTEEparser, organizationParser
-from .irs_db_utils import db_connect, initialize_db
-from .irs_officer_helpers import parse_officer_list, parse_schedule_j
+from .irs_db_utils import DBConnect
+from .irs_schedule_helpers import parse_officer_list, parse_schedule_j, parse_grant_table
 
 
 class Client():
@@ -26,12 +26,14 @@ class Client():
     def __init__(
         self, local_data_dir=None, ein_filename=None,
         index_years=[2016, 2017, 2018], save_xml=False,
-        parser="base"
+        parser="base", build_db=True
     ):
 
         self.local_data_dir = local_data_dir
         self.save_xml = save_xml
         self.parser = parser
+        self.db_path = join(self.local_data_dir, "database.sqlite3")
+        db_conn = DBConnect(self.db_path)
 
         eins = self.get_eins(ein_filename)
         indices_all = self.get_index(
@@ -55,10 +57,23 @@ class Client():
         self.parse_xmls(add_organization_info=True)
 
         # Parse Officer List Form990PartVIISectionAGrp
-        self.officers, self.df_officers = parse_officer_list(self.df)
+        self.df_officers = parse_officer_list(self.df)
         # Parse Schedule J
         self.df_schedulej = parse_schedule_j(self.df)
 
+        # Parse Grant List to Table - Schedule I
+        self.df_grants = parse_grant_table(self.df)
+
+        # Save to SQL
+        if build_db:
+            db_conn.initialize_db()
+            table_insert = "replace"
+        else:
+            table_insert = "append"
+        db_conn.saveDF(self.df, table="irs_base", insert=table_insert)
+        db_conn.saveDF(self.df_officers, table="officer_payment", insert=table_insert)
+        db_conn.saveDF(self.df_schedulej, table="schedule_j", insert=table_insert)
+        db_conn.saveDF(self.df_grants, table="grants", insert=table_insert)
 
     def get_eins(self, filename):
         """Provide a list of EINS in a text file with each EIN on a newline.
@@ -241,6 +256,15 @@ class Client():
     def getErrorDF(self):
         return self.error_file
 
+    def getScheduleJ(self):
+        return self.df_schedulej
+
+    def getOfficerDF(self):
+        return self.df_officers
+
+    def getGrantsDF(self):
+        return self.df_grants
+
     def getDashboardDF(self):
         dash_cols = [
             # Org Info
@@ -269,51 +293,20 @@ class Client():
         df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
         return df_dash
 
-    def getGrantDF(self):
-        df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()
-        grants = []
-        errors = 0
-        df_tmp = df_dash[[
-            "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
-            "City", "StateAbbr", "ScheduleI"]].copy()
-        for row in df_tmp.itertuples():
+    def getPrincipalOfficerDF(self):
+        # First Grab the Principal Officer listed on the first page of the IRS Form
+        officers = self.df[[
+            "EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "Mission",
+            "OfficerName", "OfficerTitle", "OfficerCompensationPart9",
+            "CYTotalExpenses"]].copy()
 
-            if row[8] is not None:
-                tmp = {}
-                tmp["EIN"] = row[1]
-                tmp["ObjectId"] = row[2]
-                tmp["OrganizationName"] = row[3]
-                tmp["TaxYr"] = row[4]
-                tmp["Address"] = row[5]
-                tmp["City"] = row[6]
-                tmp["StateAbbr"] = row[7]
+        # Caps Names
+        officers["OfficerName"] = officers["OfficerName"].apply(lambda x: x.upper())
+        # Deal with Titles
+        officers["OfficerTitle"] = officers["OfficerTitle"].apply(lambda x: str(x).upper())
+        # Add Officer Compensation Percentage of Total Expenses
+        tmp_val = officers["OfficerCompensationPart9"] / officers["CYTotalExpenses"]
+        officers.loc[:, "OfficerCompensationPct"] = tmp_val.copy()
+        return officers
 
-                d = row[8]
-                tbl = d.get("RecipientTable", False)
-                if tbl:
-                    if isinstance(tbl, dict):
-                        # If its the only element in table,
-                        # put it in a list to iterate over
-                        tmp2 = []
-                        tmp2.append(tbl)
-                        tbl = tmp2
-                        errors += 1
-                    for grant in tbl:
-                        tmp_grant = flatten_json.flatten(grant)
-
-                        tmp_grant.update(tmp)
-                        grants.append(tmp_grant)
-
-        df_grants = pd.DataFrame(grants)
-        grant_cols = [
-            "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
-            "City", "StateAbbr",
-            "RecipientEIN", "RecipientBusinessName_BusinessNameLine1Txt",
-            "PurposeOfGrantTxt", "CashGrantAmt", 'NonCashAssistanceAmt',
-            'NonCashAssistanceDesc', "IRCSectionDesc", "USAddress_CityNm",
-            "USAddress_StateAbbreviationCd", "ForeignAddress_AddressLine1Txt",
-            "ForeignAddress_CountryCd"
-        ]
-        self.df_grants = df_grants[grant_cols].copy()
-        return df_grants
 

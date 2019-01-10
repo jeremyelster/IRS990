@@ -10,20 +10,6 @@ def parse_officer_list(df):
     Takes the OfficerList column returned from IRS990 and builds it into a data frame
     with each officer getting their own row"""
 
-    # First Grab the Principal Officer listed on the first page of the IRS Form
-    officers = df[[
-        "EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "Mission",
-        "OfficerName", "OfficerTitle", "OfficerCompensationPart9",
-        "CYTotalExpenses"]].copy()
-
-    # Caps Names
-    officers["OfficerName"] = officers["OfficerName"].apply(lambda x: x.upper())
-    # Deal with Titles
-    officers["OfficerTitle"] = officers["OfficerTitle"].apply(lambda x: str(x).upper())
-    # Add Officer Compensation Percentage of Total Expenses
-    tmp_val = officers["OfficerCompensationPart9"] / officers["CYTotalExpenses"]
-    officers.loc[:, "OfficerCompensationPct"] = tmp_val.copy()
-
     # Form990PartVIISectionAGrp
     officers_cols = ["EIN", "ObjectId", "OrganizationName", "TaxYr", "StateAbbr", "OfficerList"]
     df_tmp = df[officers_cols].copy()
@@ -95,7 +81,7 @@ def parse_officer_list(df):
     df_officer["TotalCompFromOrgAmt"] = df_officer["ReportableCompFromOrgAmt"] + df_officer["OtherCompensationAmt"]
     df_officer.reset_index(inplace=True, drop=True)
 
-    return officers, df_officer
+    return df_officer
 
 def get_bool(x):
 
@@ -192,6 +178,55 @@ def parse_schedule_j(df):
     del df["BusinessName_BusinessNameLine2"]
 
     return df
+
+
+def parse_grant_table(df):
+    df_dash = df.groupby(["EIN", "TaxYr"], as_index=False).last()
+    grants = []
+    errors = 0
+    df_tmp = df_dash[[
+        "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
+        "City", "StateAbbr", "ScheduleI"]].copy()
+    for row in df_tmp.itertuples():
+
+        if row[8] is not None:
+            tmp = {}
+            tmp["EIN"] = row[1]
+            tmp["ObjectId"] = row[2]
+            tmp["OrganizationName"] = row[3]
+            tmp["TaxYr"] = row[4]
+            tmp["Address"] = row[5]
+            tmp["City"] = row[6]
+            tmp["StateAbbr"] = row[7]
+
+            d = row[8]
+            tbl = d.get("RecipientTable", False)
+            if tbl:
+                if isinstance(tbl, dict):
+                    # If its the only element in table,
+                    # put it in a list to iterate over
+                    tmp2 = []
+                    tmp2.append(tbl)
+                    tbl = tmp2
+                    errors += 1
+                for grant in tbl:
+                    tmp_grant = flatten_json.flatten(grant)
+
+                    tmp_grant.update(tmp)
+                    grants.append(tmp_grant)
+
+    df_grants = pd.DataFrame(grants)
+    grant_cols = [
+        "EIN", "ObjectId", "OrganizationName", "TaxYr", "Address",
+        "City", "StateAbbr",
+        "RecipientEIN", "RecipientBusinessName_BusinessNameLine1Txt",
+        "PurposeOfGrantTxt", "CashGrantAmt", 'NonCashAssistanceAmt',
+        'NonCashAssistanceDesc', "IRCSectionDesc", "USAddress_CityNm",
+        "USAddress_StateAbbreviationCd", "ForeignAddress_AddressLine1Txt",
+        "ForeignAddress_CountryCd"
+    ]
+    df_grants = df_grants[grant_cols].copy()
+    return df_grants
 
 
 if __name__ == "__main__":
