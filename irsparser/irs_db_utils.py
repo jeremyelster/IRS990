@@ -52,7 +52,7 @@ officer_payment_sql = """
         TotalCompFromOrgAmt float)"""
 
 schedule_j_sql = """
-CREATE TABLE (
+CREATE TABLE schedule_j (
     EIN text,
     ObjectId text,
     OrganizationName text,
