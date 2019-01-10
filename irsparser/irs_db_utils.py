@@ -8,7 +8,7 @@ class DBConnect:
 
     def __init__(self, db_path):
         self.con = sqlite3.connect(db_path)
-        self.cur = con.cursor()
+        self.cur = self.con.cursor()
 
     def initialize_db(self):
 
