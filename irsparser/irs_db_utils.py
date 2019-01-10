@@ -33,7 +33,7 @@ class DBConnect:
 
 officer_payment_sql = """
     CREATE TABLE officer_payment (
-        EIN text PRIMARY KEY
+        EIN text PRIMARY KEY,
         ObjectId text,
         OrganizationName text,
         TaxYr text,
