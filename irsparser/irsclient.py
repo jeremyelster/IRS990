@@ -11,7 +11,7 @@ from .irs_helpers import xml_parser3
 from .irs_helpers import commonNTEEparser, deductibilityParser
 from .irs_helpers import descNTEEparser, organizationParser
 from .irs_db_utils import DBConnect
-from .irs_schedule_helpers import parse_officer_list, parse_schedule_j, parse_grant_table
+from .irs_schedule_helpers import parse_officer_list, parse_schedule_j, parse_grant_table, get_irs_base_dashboard
 
 
 class Client():
@@ -64,13 +64,16 @@ class Client():
         # Parse Grant List to Table - Schedule I
         self.df_grants = parse_grant_table(self.df)
 
+        # Get Working Dashboard for SQL
+        self.df_dash = get_irs_base_dashboard(self.df)
+
         # Save to SQL
         if build_db:
             db_conn.initialize_db()
             table_insert = "replace"
         else:
             table_insert = "append"
-        # db_conn.saveDF(self.df, table="irs_base", insert=table_insert)
+        db_conn.saveDF(self.df_dash, table="irs_dashboard", insert=table_insert)
         db_conn.saveDF(self.df_officers, table="officer_payment", insert=table_insert)
         db_conn.saveDF(self.df_schedulej, table="schedule_j", insert=table_insert)
         db_conn.saveDF(self.df_grants, table="grants", insert=table_insert)

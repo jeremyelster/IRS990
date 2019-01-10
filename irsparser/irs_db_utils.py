@@ -11,14 +11,13 @@ class DBConnect:
     def initialize_db(self):
 
         self.cur.execute("DROP TABLE IF EXISTS officer_payment")
-        self.cur.execute("DROP TABLE IF EXISTS officer_org")
         self.cur.execute("DROP TABLE IF EXISTS schedule_j")
-        self.cur.execute("DROP TABLE IF EXISTS irs_base")
+        self.cur.execute("DROP TABLE IF EXISTS irs_dashboard")
         self.cur.execute("DROP TABLE IF EXISTS grants")
 
         self.cur.execute(officer_payment_sql)
         self.cur.execute(schedule_j_sql)
-        self.cur.execute(irs_main_sql)
+        self.cur.execute(irs_dashboard_sql)
         self.cur.execute(grants_sql)
 
     def saveDF(self, df_pandas, table, insert="replace", index=False):
@@ -29,27 +28,69 @@ class DBConnect:
         return df
 
 
+irs_dashboard_sql = """
+CREATE TABLE irs_dashboard (
+    EIN text,
+    URL text,
+    LastUpdated text,
+    OrganizationName text,
+    TaxPeriod text,
+    TaxPeriodBeginDt text,
+    TaxPeriodEndDt text,
+    TaxYr text,
+    StateAbbr text,
+    Mission text,
+    TotalEmployee text,
+    ObjectId text,
+    NTEECommonCode text,
+    Foundation text,
+    OfficerName text,
+    OfficerTitle text,
+    OfficerCompensationPart9 float,
+    GrantDesc text,
+    GrantMoneyTotal float,
+    ProgramExpenses float,
+    PYTotalRevenue float,
+    CYTotalRevenue float,
+    PYRevenuesLessExpenses float,
+    CYRevenuesLessExpenses float,
+    TotalAssetsBOY float,
+    TotalAssetsEOY float,
+    TotalLiabilitiesBOY float,
+    TotalLiabilitiesEOY float,
+    TotalExpenses float,
+    CYTotalExpenses float,
+    PYTotalExpenses float,
+    WorkingCapital float,
+    LiabilitiesToAsset float,
+    SurplusMargin float,
+    ProgramExp float,
+    ScheduleJ bool,
+    ScheduleI bool,
+    ScheduleO bool,
+    ScheduleA bool)"""
+
 officer_payment_sql = """
-    CREATE TABLE officer_payment (
-        EIN text PRIMARY KEY,
-        ObjectId text,
-        OrganizationName text,
-        TaxYr text,
-        StateAbbr text,
-        PersonNm text,
-        TitleTxt text,
-        AverageHoursPerWeekRt float,
-        ReportableCompFromOrgAmt float,
-        OtherCompensationAmt float,
-        ReportableCompFromRltdOrgAmt float,
-        AverageHoursPerWeekRltdOrgRt float,
-        IndividualTrusteeOrDirectorInd bool,
-        OfficerInd bool,
-        HighestCompensatedEmployeeInd bool,
-        FormerOfcrDirectorTrusteeInd bool,
-        KeyEmployeeInd bool,
-        InstitutionalTrusteeInd bool,
-        TotalCompFromOrgAmt float)"""
+CREATE TABLE officer_payment (
+    EIN text PRIMARY KEY,
+    ObjectId text,
+    OrganizationName text,
+    TaxYr text,
+    StateAbbr text,
+    PersonNm text,
+    TitleTxt text,
+    AverageHoursPerWeekRt float,
+    ReportableCompFromOrgAmt float,
+    OtherCompensationAmt float,
+    ReportableCompFromRltdOrgAmt float,
+    AverageHoursPerWeekRltdOrgRt float,
+    IndividualTrusteeOrDirectorInd bool,
+    OfficerInd bool,
+    HighestCompensatedEmployeeInd bool,
+    FormerOfcrDirectorTrusteeInd bool,
+    KeyEmployeeInd bool,
+    InstitutionalTrusteeInd bool,
+    TotalCompFromOrgAmt float)"""
 
 schedule_j_sql = """
 CREATE TABLE schedule_j (
@@ -77,57 +118,6 @@ CREATE TABLE schedule_j (
     SeverancePaymentInd bool,
     TravelForCompanionsInd text)"""
 
-irs_main_sql = """
-CREATE TABLE irs_base (
-    EIN text PRIMARY KEY,
-    TaxPeriod text NOT NULL,
-    DLN text NOT NULL,
-    FormType text NOT NULL,
-    LastUpdate text NOT NULL,
-    ObjectId text NOT NULL,
-    OrganizationName text NOT NULL,
-    SubmittedOn text NOT NULL,
-    URL text NOT NULL,
-    BondProceeds text,
-    BuildTs text,
-    Contributions text,
-    CountryAbbr text,
-    ExecutiveCompensation text,
-    InvestmentIncome text,
-    NetAssets text,
-    NetFundraising text,
-    NetInventorySales text,
-    OfficerName text,
-    OfficerTitle text,
-    OtherRevenue text,
-    OtherSalaryWages text,
-    PerparerFirmGrp text,
-    PreparerDate text,
-    PreparerPersonName text,
-    ProfessionalFundraisingFees text,
-    ProgramExpenses text,
-    ProgramServices text,
-    RentalPropertyIncome text,
-    ReturnTs text,
-    ReturnTypeCd text,
-    RevenueLessExpenses text,
-    Royalties text,
-    SalesOfAssets text,
-    StateAbbr text,
-    TaxPeriodBeginDt text, 
-    TaxPeriodEndDt text,
-    TaxYr text, 
-    TotalAssets text,
-    TotalExpenses text
-    TotalLiabilities text,
-    TotalRevenue text,
-    Deductibility text,
-    Foundation text,
-    Organization text,
-    NTEECode text,
-    NTEECommonCode text,
-    NTEECodeDescription text)"""
-
 grants_sql = """
 CREATE TABLE grants (
     EIN text,
@@ -148,3 +138,4 @@ CREATE TABLE grants (
     USAddress_StateAbbreviationCd text,
     ForeignAddress_AddressLine1Txt text,
     ForeignAddress_CountryCd text)"""
+

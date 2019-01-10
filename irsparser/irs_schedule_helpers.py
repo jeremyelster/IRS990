@@ -229,27 +229,90 @@ def parse_grant_table(df):
     return df_grants
 
 
-if __name__ == "__main__":
-    # Runtime
-    client = irs.Client(
-        local_data_dir="../../data", ein_filename="eins",
-        index_years=[2016, 2017, 2018], save_xml=False,
-        parser="base")
-    client.parse_xmls(add_organization_info=True)
-    df = client.getFinalDF()
+def get_irs_base_dashboard(self):
+    dash_cols = [
+        # Org Info
+        'EIN', 'URL', 'LastUpdated', 'OrganizationName', 'TaxPeriod', 'TaxPeriodBeginDt',
+        'TaxPeriodEndDt', 'TaxYr', 'StateAbbr', 'Mission', 'TotalEmployee', "ObjectId",
+        'NTEECommonCode', 'Foundation',
 
-    # Parse Officer List Form990PartVIISectionAGrp
-    officers, df_officers = parse_officer_list(df)
+        # People
+        "OfficerName", "OfficerTitle", 'OfficerCompensationPart9',
 
-    # Parse Schedule J
-    df_schedulej = parse_schedule_j(df)
+        # Grants and Programs
+        "GrantDesc", "GrantMoneyTotal", "ProgramExpenses",
 
-    # Dump to SQL
-    con = irs.db_connect()
-    cur = con.cursor()
-    irs.initialize_db(con)
+        # Money
+        "PYTotalRevenue", "CYTotalRevenue",
+        "PYRevenuesLessExpenses", "CYRevenuesLessExpenses",
+        'TotalAssetsBOY', 'TotalAssetsEOY',
+        'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
+        'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',
 
-    officers.to_sql("officer_org", con=con, if_exists="replace", index=False)
-    df_officers.to_sql("officer_payment", con=con, if_exists="replace", index=False)
-    df_schedulej.to_sql("schedule_j", con-con, if_exists="replace", index=False)
+        # Metrics
+        "WorkingCapital", "LiabilitiesToAsset", "SurplusMargin", "ProgramExp",
 
+        # Additional
+        "ScheduleJ", "ScheduleI", 'ScheduleO', "ScheduleA"]
+    df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
+
+    # Clean Up Schedule J, Schedule I, Schedule O, Schedule A
+    # Set Schedule A to TrueFalse to indicate if it exists
+    df_dash["ScheduleA"] = df_dash["ScheduleA"].apply(scheduleAparser)
+    df_dash["ScheduleJ"] = df_dash["ScheduleJ"].apply(scheduleJparser)
+    df_dash["ScheduleO"] = df_dash["ScheduleO"].apply(scheduleOparser)
+    df_dash["ScheduleI"] = df_dash["ScheduleI"].apply(scheduleIparser)
+
+    return df_dash
+
+
+# Replace scheduleA with bool
+def scheduleAparser(x):
+    if x is None:
+        return False
+    else:
+        return True
+
+
+# Replace ScheduleI (Grants)
+def scheduleIparser(x):
+    try:
+        if x.get("RecipientTable", False):
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Schedule I Parser: {x} - {e}")
+        if x is None:
+            return False
+        else:
+            return False
+
+
+# Remove ScheduleJ
+def scheduleJparser(x):
+    try:
+        if x.get("RltdOrgOfficerTrstKeyEmplGrp", False):
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Schedule J Parser: {x} - {e}")
+        if x is None:
+            return False
+        else:
+            return False
+
+# Flatten Schedule O
+def scheduleOparser(x):
+    res_str = ""
+    supplInfoDetail = x.get("SupplementalInformationDetail", {})
+    if isinstance(supplInfoDetail, dict):
+        # If its the only element in table, put it in a list to iterate over
+        tmp2 = []
+        tmp2.append(supplInfoDetail)
+        supplInfoDetail = tmp2
+    for detail in supplInfoDetail:
+        res = detail.get("ExplanationTxt")
+        res_str = " ".join([res_str, res])
+    return res_str
