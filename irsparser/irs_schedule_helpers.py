@@ -247,6 +247,7 @@ def get_irs_base_dashboard(df):
         # Money
         "PYTotalRevenue", "CYTotalRevenue",
         "PYRevenuesLessExpenses", "CYRevenuesLessExpenses",
+        "PYSalaryBenefitsPaid", "CYSalaryBenefitsPaid",
         'TotalAssetsBOY', 'TotalAssetsEOY',
         'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
         'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',

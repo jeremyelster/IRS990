@@ -269,33 +269,7 @@ class Client():
         return self.df_grants
 
     def getDashboardDF(self):
-        dash_cols = [
-            # Org Info
-            'EIN', 'URL', 'LastUpdated', 'OrganizationName', 'TaxPeriod', 'TaxPeriodBeginDt',
-            'TaxPeriodEndDt', 'TaxYr', 'StateAbbr', 'Mission', 'TotalEmployee', "ObjectId",
-            'NTEECommonCode', 'Foundation',
-
-            # People
-            "OfficerName", "OfficerTitle", 'OfficerCompensationPart9', "ScheduleJ",
-
-            # Grants and Programs
-            "GrantDesc", "GrantMoneyTotal", "ProgramExpenses",
-
-            # Money
-            "PYTotalRevenue", "CYTotalRevenue",
-            "PYRevenuesLessExpenses", "CYRevenuesLessExpenses",
-            "PYSalaryBenefitsPaid", "CYSalaryBenefitsPaid",
-            'TotalAssetsBOY', 'TotalAssetsEOY',
-            'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
-            'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',
-
-            # Metrics
-            "WorkingCapital", "LiabilitiesToAsset", "SurplusMargin", "ProgramExp",
-
-            # Additional
-            "ScheduleI", 'ScheduleO', "ScheduleA"]
-        df_dash = self.df.groupby(["EIN", "TaxYr"], as_index=False).last()[dash_cols]
-        return df_dash
+        return self.df_dash
 
     def getPrincipalOfficerDF(self):
         # First Grab the Principal Officer listed on the first page of the IRS Form
