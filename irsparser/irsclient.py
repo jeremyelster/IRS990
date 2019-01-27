@@ -284,7 +284,7 @@ class Client():
             # Money
             "PYTotalRevenue", "CYTotalRevenue",
             "PYRevenuesLessExpenses", "CYRevenuesLessExpenses",
-            "CYSalaryBenefitsPaid", "CYSalaryBenefitsPaid",
+            "PYSalaryBenefitsPaid", "CYSalaryBenefitsPaid",
             'TotalAssetsBOY', 'TotalAssetsEOY',
             'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
             'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',
