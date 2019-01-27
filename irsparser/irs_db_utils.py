@@ -54,6 +54,8 @@ CREATE TABLE irs_dashboard (
     CYTotalRevenue float,
     PYRevenuesLessExpenses float,
     CYRevenuesLessExpenses float,
+    PYSalaryBenefitsPaid float,
+    CYSalaryBenefitsPaid float,
     TotalAssetsBOY float,
     TotalAssetsEOY float,
     TotalLiabilitiesBOY float,

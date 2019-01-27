@@ -101,6 +101,8 @@ def base_parser(d, version):
         cy_total_exp = float(irs990.get("CYTotalExpensesAmt", 0))
         py_rev_less_exp = float(irs990.get("PYRevenuesLessExpensesAmt", 0))
         cy_rev_less_exp = float(irs990.get("CYRevenuesLessExpensesAmt", 0))
+        py_salaries_comp_paid = float(irs990.get("PYSalariesCompEmpBnftPaidAmt", 0))
+        cy_salaries_comp_paid = float(irs990.get("CYSalariesCompEmpBnftPaidAmt", 0))
         total_assets_boy = float(irs990.get("TotalAssetsBOYAmt", 0))
         total_assets_eoy = float(irs990.get("TotalAssetsEOYAmt", 0))
         total_liabilities_boy = float(irs990.get("TotalLiabilitiesBOYAmt", 0))
@@ -187,6 +189,8 @@ def base_parser(d, version):
         "CYTotalExpenses": cy_total_exp,
         "PYRevenuesLessExpenses": py_rev_less_exp,
         "CYRevenuesLessExpenses": cy_rev_less_exp,
+        "PYSalaryBenefitsPaid": py_salaries_comp_paid,
+        "CYSalaryBenefitsPaid": cy_salaries_comp_paid,
         "TotalAssetsBOY": total_assets_boy,
         "TotalAssetsEOY": total_assets_eoy,
         "TotalLiabilitiesBOY": total_liabilities_boy,
