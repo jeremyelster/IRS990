@@ -133,6 +133,10 @@ def base_parser(d, version):
             irs990.get("ReceivablesFromOfficersEtcGrp", {}).get("EOYAmt", 0))
         schedule_l = return_data.get("IRS990ScheduleL", None)
 
+        # Salary
+
+
+
         # Metrics
         program_services = float(
             irs990.get("TotalFunctionalExpensesGrp", {})
