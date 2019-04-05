@@ -26,7 +26,7 @@ def parse_officer_list(df):
             officer_list = officer_list.append(tmp, sort=False)
         if i % 500 == 0:
             print(f"Parsed {str(i)} of {str(len(df_tmp))}: {str(round(100. * i/len(df_tmp), 2))}%")
-
+    print(officer_list.columns)
     print(f"Number of officers with PersonNm: {officer_list['PersonNm'].notnull().sum()}")
     print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1Txt'].notnull().sum()}")
     print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1'].notnull().sum()}")
