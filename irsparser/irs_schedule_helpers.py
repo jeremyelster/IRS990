@@ -28,25 +28,28 @@ def parse_officer_list(df):
             print(f"Parsed {str(i)} of {str(len(df_tmp))}: {str(round(100. * i/len(df_tmp), 2))}%")
     print(officer_list.columns)
 
-    try:
-        print(f"Number of officers with PersonNm: {officer_list['PersonNm'].notnull().sum()}")
-        print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1Txt'].notnull().sum()}")
-        print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1'].notnull().sum()}")
+    for col in ["BusinessName.BusinessNameLine1Txt", "BusinessName.BusinessNameLine2Txt",
+                "BusinessName.BusinessNameLine1", "BusinessName.BusinessNameLine2"]:
+        if col not in officer_list.columns:
+            officer_list[col] = np.nan
 
-        # Consolidate Parsing Quirks
-        names = np.where(
-            officer_list["PersonNm"].isnull(),
-            officer_list["BusinessName.BusinessNameLine1Txt"],
-            officer_list["PersonNm"])
-        names = np.where(pd.Series(names).isnull(), officer_list["BusinessName.BusinessNameLine1"], names)
-        officer_list["PersonNm"] = names
+    print(f"Number of officers with PersonNm: {officer_list['PersonNm'].notnull().sum()}")
+    print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1Txt'].notnull().sum()}")
+    print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1'].notnull().sum()}")
 
-        del officer_list['BusinessName.BusinessNameLine1Txt']
-        del officer_list['BusinessName.BusinessNameLine2Txt']
-        del officer_list['BusinessName.BusinessNameLine1']
-        del officer_list['BusinessName.BusinessNameLine2']
-    except Exception as e:
-        print(f"No values parsed for {e}")
+    # Consolidate Parsing Quirks
+    names = np.where(
+        officer_list["PersonNm"].isnull(),
+        officer_list["BusinessName.BusinessNameLine1Txt"],
+        officer_list["PersonNm"])
+    names = np.where(pd.Series(names).isnull(), officer_list["BusinessName.BusinessNameLine1"], names)
+    officer_list["PersonNm"] = names
+
+    del officer_list['BusinessName.BusinessNameLine1Txt']
+    del officer_list['BusinessName.BusinessNameLine2Txt']
+    del officer_list['BusinessName.BusinessNameLine1']
+    del officer_list['BusinessName.BusinessNameLine2']
+
 
     column_order = [
         'EIN', 'ObjectId', 'OrganizationName', 'TaxYr', 'StateAbbr',
@@ -268,6 +271,11 @@ def get_irs_base_dashboard(df):
         'TotalAssetsBOY', 'TotalAssetsEOY',
         'TotalLiabilitiesBOY', "TotalLiabilitiesEOY",
         'TotalExpenses', 'CYTotalExpenses', 'PYTotalExpenses',
+
+        # Expenses
+        'Part9_1GrantsGov', 'Part9_2GrantsIndv', 'Part9_3GrantsForGov',
+        'Part9_4Benefits', 'Part9_5OfficerComp', 'Part9_6DisqComp', 'Part9_7OtherSalary',
+        'Part9_8Pension', 'Part9_9OtherBenefits',
 
         # Metrics
         "WorkingCapital", "LiabilitiesToAsset", "SurplusMargin", "ProgramExp",
