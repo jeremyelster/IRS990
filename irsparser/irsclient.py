@@ -170,7 +170,7 @@ class Client():
 
             else:
                 try:
-                    txt = requests.get(new_urlß)
+                    txt = requests.get(new_url)
                     if save_xml:
                         with open(fname, "wb") as f:
                             f.write(txt.content)
