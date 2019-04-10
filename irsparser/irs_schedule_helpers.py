@@ -27,22 +27,26 @@ def parse_officer_list(df):
         if i % 500 == 0:
             print(f"Parsed {str(i)} of {str(len(df_tmp))}: {str(round(100. * i/len(df_tmp), 2))}%")
     print(officer_list.columns)
-    print(f"Number of officers with PersonNm: {officer_list['PersonNm'].notnull().sum()}")
-    print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1Txt'].notnull().sum()}")
-    print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1'].notnull().sum()}")
 
-    # Consolidate Parsing Quirks
-    names = np.where(
-        officer_list["PersonNm"].isnull(),
-        officer_list["BusinessName.BusinessNameLine1Txt"],
-        officer_list["PersonNm"])
-    names = np.where(pd.Series(names).isnull(), officer_list["BusinessName.BusinessNameLine1"], names)
-    officer_list["PersonNm"] = names
+    try:
+        print(f"Number of officers with PersonNm: {officer_list['PersonNm'].notnull().sum()}")
+        print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1Txt'].notnull().sum()}")
+        print(f"Number of officers with PersonNm: {officer_list['BusinessName.BusinessNameLine1'].notnull().sum()}")
 
-    del officer_list['BusinessName.BusinessNameLine1Txt']
-    del officer_list['BusinessName.BusinessNameLine2Txt']
-    del officer_list['BusinessName.BusinessNameLine1']
-    del officer_list['BusinessName.BusinessNameLine2']
+        # Consolidate Parsing Quirks
+        names = np.where(
+            officer_list["PersonNm"].isnull(),
+            officer_list["BusinessName.BusinessNameLine1Txt"],
+            officer_list["PersonNm"])
+        names = np.where(pd.Series(names).isnull(), officer_list["BusinessName.BusinessNameLine1"], names)
+        officer_list["PersonNm"] = names
+
+        del officer_list['BusinessName.BusinessNameLine1Txt']
+        del officer_list['BusinessName.BusinessNameLine2Txt']
+        del officer_list['BusinessName.BusinessNameLine1']
+        del officer_list['BusinessName.BusinessNameLine2']
+    except Exception as e:
+        print(f"No values parsed for {e}")
 
     column_order = [
         'EIN', 'ObjectId', 'OrganizationName', 'TaxYr', 'StateAbbr',
@@ -62,7 +66,11 @@ def parse_officer_list(df):
         'InstitutionalTrusteeInd', 'OfficerInd']
 
     for col in type_cols:
-        officer_list[col] = np.where(officer_list[col] == 'X', True, False)
+        if col in officer_list.columns:
+            officer_list[col] = np.where(officer_list[col] == 'X', True, False)
+        else:
+            officer_list[col] = False
+            print(f"{col} not parsed")
 
     # Convert Number Columns from String to Float
     num_cols = [
@@ -72,7 +80,7 @@ def parse_officer_list(df):
         officer_list[col] = officer_list[col].fillna(0).astype(float)
 
     # Caps Names
-    officer_list["PersonNm"] = officer_list["PersonNm"].apply(lambda x: x.upper())
+    officer_list["PersonNm"] = officer_list["PersonNm"].apply(lambda x: str(x).upper())
 
     # Deal with Titles
     officer_list["TitleTxt"] = officer_list["TitleTxt"].apply(lambda x: str(x).upper())
@@ -147,6 +155,10 @@ def parse_schedule_j(df):
     other_cols = ['BusinessName_BusinessNameLine1',
         'BusinessName_BusinessNameLine1Txt', 'BusinessName_BusinessNameLine2',
         'SeverancePaymentInd', 'TravelForCompanionsInd']
+
+    for col in other_cols:
+        if col not in df.columns:
+            df[col] = np.nan
 
     # Reorganize Columns
     df = df[id_cols + comp_cols + other_cols].copy()
@@ -227,6 +239,11 @@ def parse_grant_table(df):
         "USAddress_StateAbbreviationCd", "ForeignAddress_AddressLine1Txt",
         "ForeignAddress_CountryCd"
     ]
+
+    for col in grant_cols:
+        if col not in df_grants.columns:
+            df_grants[col] = np.nan
+
     df_grants = df_grants[grant_cols].copy()
     return df_grants
 

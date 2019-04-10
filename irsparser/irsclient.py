@@ -6,6 +6,8 @@ import pandas as pd
 import os
 import json
 import re
+import certifi
+import urllib3
 import flatten_json
 from .irs_helpers import xml_parser3
 from .irs_helpers import commonNTEEparser, deductibilityParser
@@ -26,13 +28,13 @@ class Client():
     def __init__(
         self, local_data_dir=None, ein_filename=None,
         index_years=[2016, 2017, 2018], save_xml=False,
-        parser="base", build_db=True
+        parser="base", build_db=True, db_name="database.sqlite3"
     ):
 
         self.local_data_dir = local_data_dir
         self.save_xml = save_xml
         self.parser = parser
-        self.db_path = join(self.local_data_dir, "database.sqlite3")
+        self.db_path = join(self.local_data_dir, db_name)
         db_conn = DBConnect(self.db_path)
 
         eins = self.get_eins(ein_filename)
@@ -168,7 +170,7 @@ class Client():
 
             else:
                 try:
-                    txt = requests.get(new_url)
+                    txt = requests.get(new_urlß)
                     if save_xml:
                         with open(fname, "wb") as f:
                             f.write(txt.content)

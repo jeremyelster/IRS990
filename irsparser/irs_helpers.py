@@ -133,9 +133,26 @@ def base_parser(d, version):
             irs990.get("ReceivablesFromOfficersEtcGrp", {}).get("EOYAmt", 0))
         schedule_l = return_data.get("IRS990ScheduleL", None)
 
-        # Salary
-
-
+        # Expenses - Part 9
+        part_9_1_grants_orggov = float(
+            irs990.get("GrantsToDomesticOrgsGrp", {}).get("TotalAmt", 0))
+        part_9_2_grants_indvd = float(
+            irs990.get("GrantsToDomesticIndividualsGrp", {}).get("TotalAmt", 0))
+        part_9_3_grants_forgov = float(
+            irs990.get("ForeignGrantsGrp", {}).get("TotalAmt", 0))
+        part_9_4_benefits = float(
+            irs990.get("BenefitsToMembersGrp", {}).get("TotalAmt", 0))
+        part_9_5_officercomp = float(
+            irs990.get("CompCurrentOfcrDirectorsGrp", {}).get("TotalAmt", 0))
+        part_9_6_disqcomp = float(
+            irs990.get("CompDisqualPersonsGrp", {}).get("TotalAmt", 0))
+        part_9_7_othersalary = float(
+            irs990.get("OtherSalariesAndWagesGrp", {}).get("TotalAmt", 0))
+        part_9_8_pension = float(
+            irs990.get("PensionPlanContributionsGrp", {}).get("TotalAmt", 0))
+        part_9_9_otherbenefits = float(
+            irs990.get("OtherEmployeeBenefitsGrp", {}).get("TotalAmt", 0))
+        
 
         # Metrics
         program_services = float(
@@ -199,6 +216,17 @@ def base_parser(d, version):
         "TotalAssetsEOY": total_assets_eoy,
         "TotalLiabilitiesBOY": total_liabilities_boy,
         "TotalLiabilitiesEOY": total_liabilities_eoy,
+
+        # Expenses
+        "Part9_1GrantsGov": part_9_1_grants_orggov,
+        "Part9_2GrantsIndv": part_9_2_grants_indvd,
+        "Part9_3GrantsForGov": part_9_3_grants_forgov,
+        "Part9_4Benefits": part_9_4_benefits,
+        "Part9_5OfficerComp": part_9_5_officercomp,
+        "Part9_6DisqComp": part_9_6_disqcomp,
+        "Part9_7OtherSalary": part_9_7_othersalary,
+        "Part9_8Pension": part_9_8_pension,
+        "Part9_9OtherBenefits": part_9_9_otherbenefits,
 
         # Grants
         "GrantMoneyTotal": grant_money_total,
